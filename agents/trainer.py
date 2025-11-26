@@ -64,17 +64,15 @@ class Trainer(object):
 
         # Tensorboard
         path = "runs/{}_penalty_{}_{}_{}/{}_{}".format(args.scenario, args.penalty, args.n_predator,
-                                                               args.n_prey, args.mixing_network, args.agent_network,
-                                                               )
+                                                       args.n_prey, args.mixing_network, args.agent_network,
+                                                       )
         if not args.use_random_update:
             path += "_sequential"
         if args.use_orthogonal_init:
             path += "_orthogonal"
         self.writer = SummaryWriter(log_dir=path)
 
-        self.eval_log = []
-
-        self.eval_log_path = os.path.join(path, f"eval_log_seed_{args.seed}.csv")
+        self.eval_log_path = os.path.join(path, f"seed_{args.seed}.csv")
 
     def learn(self):
         step = 0
@@ -145,24 +143,16 @@ class Trainer(object):
             self.writer.add_scalar("score", total_reward, global_step=episode_num)
             # print(">>> episode: {}, total reward: {}, pos reward: {}, neg reward: {}".format(episode_num, total_reward, total_reward_pos, total_reward_neg))
             if episode_num % self.eval_episode == 0:
-                self.test(episode_num)
+                self.test(step, episode_num)
                 print(">>> current epsilon: {:.2f}%".format(self.epsilon * 100))
 
         training_pbar.close()
         self.eval.summarize()
 
-        if len(self.eval_log) > 0:
-            with open(self.eval_log_path, "w", newline="") as f:
-                fieldnames = list(self.eval_log[0].keys())
-                csv_writer = csv.DictWriter(f, fieldnames=fieldnames)
-                csv_writer.writeheader()
-                csv_writer.writerows(self.eval_log)
-            print(f"[Eval] 保存评估结果到: {self.eval_log_path}")
-
         self.writer.flush()
         self.writer.close()
 
-    def test(self, curr_ep=None):
+    def test(self, train_step= None, curr_ep=None):
         step = 0
         episode_num = 0
         test_flag = self.keyboard_input
@@ -245,19 +235,24 @@ class Trainer(object):
         # 根据场景选择你关注的 eval 指标：
         if self.scenario == "pursuit":
             # 原来就是用平均步数做指标
-            eval_metric = float(step) / episode_num if episode_num > 0 else 0.0
+            eval_metric = float(step) / episode_num
         else:
             # endless 系列用平均 reward 做指标
-            eval_metric = avg_reward / episode_num if episode_num > 0 else 0.0
+            eval_metric = avg_reward / episode_num
 
-        self.eval_log.append({
-            "episode": curr_ep if curr_ep is not None else episode_num,
-            "eval_metric": eval_metric
-        })
+        curr_ep = curr_ep if curr_ep is not None else episode_num
+
+
+        with open(self.eval_log_path, "w", newline="") as f:
+                writer_csv = csv.DictWriter(f, fieldnames=["total_steps", "evaluate_reward"])
+                writer_csv.writeheader()
+                writer_csv.writerow({
+                    "total_steps": train_step,
+                    "evaluate_reward": float(eval_metric)
+                })
 
         if self.writer is not None:
-            global_step = curr_ep if curr_ep is not None else episode_num
-            self.writer.add_scalar("eval/metric", eval_metric, global_step=global_step)
+            self.writer.add_scalar("eval/metric", eval_metric, global_step=curr_ep)
 
         if self.scenario == "pursuit":
             print("Test result (average steps to capture): train {} episodes, average: {} steps".format(curr_ep, float(

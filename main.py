@@ -51,7 +51,7 @@ def main():
     
     ## Environment
     # Scenario
-    parser.add_argument("--scenario", type=str, default="pursuit", help="Scenario")
+    parser.add_argument("--scenario", type=str, default="endless3", help="Scenario")
     parser.add_argument("--n_predator", type=int, default=2, help="Number of predators")
     parser.add_argument("--n_prey1", type=int, default=1, help="Number of preys 1")
     parser.add_argument("--n_prey2", type=int, default=1, help="Number of preys 2")
@@ -97,8 +97,8 @@ def main():
     parser.add_argument("--training_start", type=int, default=100, help="Number of steps before training [batch_size * pre_step]")
     parser.add_argument("--max_step", type=int, default=100, help="Maximum time step per episode")
     parser.add_argument("--training_step", type=int, default=1000000, help="Learning time step")
-    parser.add_argument("--eval_episode", type=int, default=100, help="Evaluation per much episode")
-    parser.add_argument("--testing_step", type=int, default=10000, help="Testing time step")
+    parser.add_argument("--eval_episode", type=int, default=20, help="Evaluation per much episode")
+    parser.add_argument("--testing_step", type=int, default=5000, help="Testing time step")
 
     # Reinforcement learning parameters
     parser.add_argument("--epsilon", type=float, default=1.0, help="Initial epsilon")
@@ -117,7 +117,7 @@ def main():
     parser.add_argument("--keyboard_input", action="store_true", help="Keyboard input test")
 
     # Trained model parameters
-    parser.add_argument("--save_period", type=int, default=10000, help="Target network update period")
+    parser.add_argument("--save_period", type=int, default=100000, help="Target network update period")
     parser.add_argument("--load_nn", action="store_true", help="Load nn from file or not")
     parser.add_argument("--nn_file", type=str, default="", help="The name of file for loading")
     

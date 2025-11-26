@@ -121,8 +121,10 @@ class MultiAgentEnv(gym.Env):
             if reset_n[i] == True: 
                 self.world.resetObj(agent)
             i += 1
+
         for agent in self.agents:
-            done_n.append(False)
+            # done_n.append(False)
+            done_n.append(self._get_done(agent))
 
         for agent in self.agents:
             obs_n.append(self._get_obs(agent))
@@ -157,10 +159,6 @@ class MultiAgentEnv(gym.Env):
             return False
         return self.done_callback(agent, self.world)
 
-    def _get_done(self, agent):
-        if self.done_callback is None:
-            return False
-        return self.done_callback(agent, self.world)
 
     # get reward for a particular agent
     def _get_reward(self, agent):
