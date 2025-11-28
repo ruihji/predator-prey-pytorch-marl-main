@@ -45,11 +45,13 @@ class Trainer(object):
         self.training_start = args.training_start
         self.max_step = args.max_step
         self.training_step = args.training_step
-        self.eval_episode = args.eval_episode
+        # self.eval_interval_episode = args.eval_interval_episode
+        self.evaluate_times = args.evaluate_times
+        self.evaluate_freq = args.evaluate_freq
         self.testing_step = args.testing_step
         self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.n_predator_agent.optimizer, step_size=args.step_size,
                                                             gamma=args.gamma)
-
+        self.algorithm = args.mixing_network
         self.scenario = args.scenario
         self.gui = args.gui
         self.keyboard_input = args.keyboard_input
@@ -63,23 +65,22 @@ class Trainer(object):
             self.canvas.setup()
 
         # Tensorboard
-        path = "runs/{}_penalty_{}_{}_{}/{}_{}".format(args.scenario, args.penalty, args.n_predator,
-                                                       args.n_prey, args.mixing_network, args.agent_network,
-                                                       )
+        self.log_path = "runs/{}_penalty_{}_{}_{}".format(args.scenario, args.penalty, args.n_predator, args.n_prey)
+        self.eval_log = []
+        self.seed = args.seed
         if not args.use_random_update:
-            path += "_sequential"
+            self.log_path += "_sequential"
         if args.use_orthogonal_init:
-            path += "_orthogonal"
-        self.writer = SummaryWriter(log_dir=path)
-
-        self.eval_log_path = os.path.join(path, f"seed_{args.seed}.csv")
+            self.log_path += "_orthogonal"
+        self.writer = SummaryWriter(log_dir=self.log_path)
 
     def learn(self):
-        step = 0
+        total_steps = 0
         episode_num = 0
-        training_pbar = tqdm(initial=0, desc="Training", total=self.training_step, unit="step")
+        training_pbar = tqdm(initial=0, desc="Training", total=self.training_step, unit="total_steps")
+        evaluate_num = -1
 
-        while step < self.training_step:
+        while total_steps < self.training_step:
             episode_num += 1
             episode_step = 0
             obs = self.env.reset()
@@ -99,7 +100,7 @@ class Trainer(object):
             h_state = torch.zeros([self.n_predator, self.rnn_hidden_dim]).to(self.device)
 
             while True:
-                step += 1
+                total_steps += 1
                 training_pbar.update(1)
                 episode_step += 1
 
@@ -128,31 +129,36 @@ class Trainer(object):
                 else:
                     total_reward_neg -= r
 
-                if self.is_episode_done(done, step) or episode_step >= self.max_step:
+                if self.is_episode_done(done, total_steps) or episode_step >= self.max_step:
                     self.replay_buffer.store_last_step(episode_step, obs_n, s)
                     break
 
                 # Start training after enough amount of replay buffer
                 if len(self.replay_buffer) >= self.training_start:
                     loss = self.n_predator_agent.train(self.replay_buffer)
-                    self.writer.add_scalar("loss", loss, global_step=step)
+                    self.writer.add_scalar("loss", loss, global_step=total_steps)
 
                 # Epsilon Decaying
                 self.epsilon = max(self.epsilon - self.epsilon_decay, self.min_epsilon)
 
             self.writer.add_scalar("score", total_reward, global_step=episode_num)
-            # print(">>> episode: {}, total reward: {}, pos reward: {}, neg reward: {}".format(episode_num, total_reward, total_reward_pos, total_reward_neg))
-            if episode_num % self.eval_episode == 0:
-                self.test(step, episode_num)
+            # print(">>> episode: {}, total reward: {}, pos reward: {}, neg reward: {}".format(episode_num,
+            # total_reward, total_reward_pos, total_reward_neg))
+
+            # if episode_num % self.eval_interval_episode == 0:
+            if total_steps // self.evaluate_freq > evaluate_num:
+                self.test(total_steps, episode_num)
+                evaluate_num += 1
                 print(">>> current epsilon: {:.2f}%".format(self.epsilon * 100))
 
+        self.test(total_steps, episode_num)
         training_pbar.close()
         self.eval.summarize()
 
         self.writer.flush()
         self.writer.close()
 
-    def test(self, train_step= None, curr_ep=None):
+    def test(self, train_step=None, curr_ep=None):
         step = 0
         episode_num = 0
         test_flag = self.keyboard_input
@@ -162,7 +168,8 @@ class Trainer(object):
         avg_reward_pos = 0
         avg_reward_neg = 0
 
-        while step < self.testing_step:
+        # while step < self.testing_step:
+        while episode_num < self.evaluate_times:
             episode_num += 1
             episode_step = 0
             obs = self.env.reset()
@@ -232,24 +239,19 @@ class Trainer(object):
             avg_reward_pos += total_reward_pos
             avg_reward_neg += total_reward_neg
 
-        # 根据场景选择你关注的 eval 指标：
         if self.scenario == "pursuit":
-            # 原来就是用平均步数做指标
             eval_metric = float(step) / episode_num
         else:
-            # endless 系列用平均 reward 做指标
             eval_metric = avg_reward / episode_num
 
         curr_ep = curr_ep if curr_ep is not None else episode_num
 
+        self.eval_log.append({
+            "steps": train_step,
+            "reward": eval_metric,
+        })
 
-        with open(self.eval_log_path, "w", newline="") as f:
-                writer_csv = csv.DictWriter(f, fieldnames=["total_steps", "evaluate_reward"])
-                writer_csv.writeheader()
-                writer_csv.writerow({
-                    "total_steps": train_step,
-                    "evaluate_reward": float(eval_metric)
-                })
+        np.save(os.path.join(self.log_path, f"{self.algorithm}_seed_{self.seed}.npy"), np.array(self.eval_log))
 
         if self.writer is not None:
             self.writer.add_scalar("eval/metric", eval_metric, global_step=curr_ep)

@@ -53,8 +53,8 @@ def main():
     # Scenario
     parser.add_argument("--scenario", type=str, default="endless3", help="Scenario")
     parser.add_argument("--n_predator", type=int, default=2, help="Number of predators")
-    parser.add_argument("--n_prey1", type=int, default=1, help="Number of preys 1")
-    parser.add_argument("--n_prey2", type=int, default=1, help="Number of preys 2")
+    parser.add_argument("--n_prey1", type=int, default=0, help="Number of preys 1")
+    parser.add_argument("--n_prey2", type=int, default=2, help="Number of preys 2")
     parser.add_argument("--n_prey", type=int, default=2, help="Number of preys")
     
     # Observation
@@ -65,7 +65,7 @@ def main():
     parser.add_argument("--render_every", type=float, default=1000, help="Render the nth episode")
 
     # Penalty
-    parser.add_argument("--penalty", type=int, default=0, help="reward penalty (e.g. 5 and 10 mean 0.5 and 1.0 penalties individualy")
+    parser.add_argument("--penalty", type=int, default=5, help="reward penalty (e.g. 5 and 10 mean 0.5 and 1.0 penalties individualy")
     
     
     ## Agent    
@@ -91,14 +91,18 @@ def main():
     parser.add_argument("--gamma", type=float, default=0.5, help="Multiplicative factor of learning rate decay")
     parser.add_argument("--use_grad_clip", action="store_true", help="Use gradient clipping")
     parser.add_argument('--max_grad_norm', type=int, default=10, help='Maxinum gradient norm')
-    
+
+
     # Training parameters
     parser.add_argument("--batch_size", type=int, default=32, help="Minibatch size")
     parser.add_argument("--training_start", type=int, default=100, help="Number of steps before training [batch_size * pre_step]")
     parser.add_argument("--max_step", type=int, default=100, help="Maximum time step per episode")
     parser.add_argument("--training_step", type=int, default=1000000, help="Learning time step")
-    parser.add_argument("--eval_episode", type=int, default=20, help="Evaluation per much episode")
-    parser.add_argument("--testing_step", type=int, default=5000, help="Testing time step")
+    parser.add_argument("--eval_interval_episode", type=int, default=20, help="Evaluation per much episode")
+    parser.add_argument("--evaluate_times", type=float, default=32, help="Evaluate times")
+    parser.add_argument("--evaluate_freq", type=float, default=2000,
+                        help="Evaluate the policy every 'evaluate_freq' steps")
+    parser.add_argument("--testing_step", type=int, default=3200, help="Testing time step")
 
     # Reinforcement learning parameters
     parser.add_argument("--epsilon", type=float, default=1.0, help="Initial epsilon")
